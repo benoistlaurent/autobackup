@@ -1,0 +1,61 @@
+#!/usr/bin/env python3
+
+import subprocess
+import logging
+
+
+RSYNC_DEFAULT_FLAGS = ['-a', '-v', '--delete']
+
+
+class RsyncCompletedProcess(subprocess.CompletedProcess):
+
+    @classmethod
+    def from_parent(cls, parent):
+        return cls(parent.args, parent.returncode,
+                   parent.stdout, parent.stderr)
+
+    def has_errors(self):
+        """Return True if rsync exited with errors (return status is not 0)."""
+        return self.returncode != 0
+
+    def has_no_space_left_error(self):
+        """Return True if a no space left error was detected.
+        Check if stderr contains 'No space left on device (28)' or
+        'Result too large (34)'.
+        """
+        return (b'No space left on device (28)' in self.stderr or
+                b'Result too large (34)' in self.stderr)
+
+    def assert_has_no_errors(self):
+        """Raise an AssertionError return code is not 0."""
+        if self.has_errors():
+            err = 'rsync process had errors:\n' + self.stderr.decode('utf-8')
+            raise AssertionError(err)
+
+
+def rsync(source, dest, exe='rsync', flags=RSYNC_DEFAULT_FLAGS):
+    """Run rsync.
+
+    Args:
+        source (str): path to source
+        dest (str): path to destination
+        exe (str): path to rsync executable
+        flags (list[str]): flags to be passed to rsync
+
+    Returns:
+        RsyncCompletedProcess: rsync output data.
+    """
+    cmd = [exe] + flags + [source] + [dest]
+    logging.debug("rsync command: " + ' '.join(cmd))
+    p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return RsyncCompletedProcess.from_parent(p)
+
+
+def main():
+    rsync('tmp/source', 'tmp/dest')
+
+
+if __name__ == '__main__':
+    main()
+
+
