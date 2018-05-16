@@ -13,6 +13,14 @@ RSYNC_DEFAULT_FLAGS = ['-a', '-v', '--delete']
 
 class RsyncCompletedProcess(subprocess.CompletedProcess):
 
+    @property
+    def stdout_str(self):
+        return self.stdout.decode('utf-8')
+
+    @property
+    def stderr_str(self):
+        return self.stderr.decode('utf-8')
+
     @classmethod
     def from_parent(cls, parent):
         return cls(parent.args, parent.returncode,
@@ -29,6 +37,10 @@ class RsyncCompletedProcess(subprocess.CompletedProcess):
         """
         return (b'No space left on device (28)' in self.stderr or
                 b'Result too large (34)' in self.stderr)
+
+    def print_errors(self):
+        print("process standard output:\n{}".format(self.stdout_str), file=sys.stderr)
+        print("process error output:\n{}".format(self.stderr_str), file=sys.stderr)
 
     def assert_has_no_errors(self):
         """Raise an AssertionError return code is not 0."""
@@ -72,7 +84,7 @@ def send_email(exp, to, content, subject='', server='localhost'):
     s.quit()
 
 
-def now(fmt='%Y%m%d-%H%M%S'):
+def now(fmt='%y%m%d-%H%M%S'):
     """Return the date as a string in the format `fmt`.
     Args:
         fmt (str): date string format compatible with `datetime.strftime`.
@@ -83,6 +95,7 @@ def now(fmt='%Y%m%d-%H%M%S'):
 
 
 def read_config_file(path):
+    logging.info("Read configuration file {}".format(path))
     config = configparser.ConfigParser()
     config.read(path)
     return config
@@ -90,34 +103,41 @@ def read_config_file(path):
 
 def main():
     # Directory where log file will be written.
-    # logfiledir = dest
+    logfiledir = '/var/log/autobackup'
 
-    # # Create a log file.
-    # logfile = os.path.join(logfiledir, now() + '_backup.log')
-    # logging.info("logging to: {}".format(logfile))
+    prog = os.path.basename(sys.argv[0])
+
+    # Create a log file.
+    logfile = os.path.join(logfiledir, now() + '_backup.log')
+    print("{}: logging to: {}".format(prog, logfile), file=sys.stderr)
+
     logging.basicConfig(level=logging.DEBUG,
                         format='%(asctime)s - %(levelname)-8s %(message)s',
-    #                     filename=logfile,
-                        # filemode='w'
+                        filename=logfile,
+                        filemode='w'
     )
+    
+    logging.info("Start time: {}".format(now("%H:%M:%S")))
 
     errors = []
 
     config = read_config_file('config/example.cfg')
-    for name in config.sections():
+    for i, name in enumerate(config.sections()):
+        logging.info("----------------------------")
         section = config[name]
         source = section['source']
         dest = section['dest']
         logging.info("backing up {} to {}".format(source, dest))
         result = rsync(source, dest)
         if result.has_errors():
-            print("process standard output:\n{}".format(result.stdout.decode('utf-8')), file=sys.stderr)
-            print("process error output:\n{}".format(result.stderr.decode('utf-8')), file=sys.stderr)
+            result.print_errors()
             message = "error backing up {} to {}".format(source, dest)
             logging.error(message)
             errors.append(message)
         else:
             logging.info("done, no error detected".format(source, dest))
+        if i == len(config.sections()) - 1:
+            logging.info("----------------------------")
 
     if errors:
         logging.error("{} error{} occured during backup:".format(len(errors),
@@ -127,7 +147,7 @@ def main():
         sys.exit(1)
 
     logging.info("Backup successful")
-
+    logging.info("End time: {}".format(now("%H:%M:%S")))
 
 
 if __name__ == '__main__':
