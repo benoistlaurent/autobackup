@@ -101,48 +101,64 @@ def read_config_file(path):
     return config
 
 
-def main():
+def init_logging():
+    """Initialize logging parameters."""
     # Directory where log file will be written.
     logfiledir = '/var/log/autobackup'
 
-    prog = os.path.basename(sys.argv[0])
-
-    # Create a log file.
+    # Log file name is based on current date and time.
+    prog = os.path.basename(sys.argv[0])  # program name
     logfile = os.path.join(logfiledir, now() + '_backup.log')
     print("{}: logging to: {}".format(prog, logfile), file=sys.stderr)
 
+    # Initialization itself.
     logging.basicConfig(level=logging.DEBUG,
                         format='%(asctime)s - %(levelname)-8s %(message)s',
-                        filename=logfile,
+                        # filename=logfile,
                         filemode='w')
 
+
+def backup_from_config(section):
+    """Backup from info stored in configuration file section.
+
+    Returns:
+        bool: success status
+    """
+    source = section['source']
+    dest = section['dest']
+    logging.info("backing up {} to {}".format(source, dest))
+
+    result = rsync(source, dest)
+
+    if result.has_errors():
+        message = "error backing up {} to {}:\n{}".format(source, dest, result.stderr_str)
+        logging.error(message)
+        return False
+    
+    logging.info("done, no error detected".format(source, dest))
+    return True
+
+
+def main():
+    init_logging()
     logging.info("Start time: {}".format(now("%H:%M:%S")))
 
-    errors = []
-
+    # Read configuration file.
     config = read_config_file('config/example.cfg')
+
+    # Actual backup procedure.
+    nerrors = 0
     for i, name in enumerate(config.sections()):
         logging.info("----------------------------")
-        section = config[name]
-        source = section['source']
-        dest = section['dest']
-        logging.info("backing up {} to {}".format(source, dest))
-        result = rsync(source, dest)
-        if result.has_errors():
-            result.print_errors()
-            message = "error backing up {} to {}".format(source, dest)
-            logging.error(message)
-            errors.append(message)
-        else:
-            logging.info("done, no error detected".format(source, dest))
+        success = backup_from_config(config[name])
+        if not success:
+            nerrors += 1
         if i == len(config.sections()) - 1:
             logging.info("----------------------------")
 
-    if errors:
-        logging.error("{} error{} occured during backup:".format(len(errors),
-                      's' if len(errors) > 1 else ''))
-        for err in errors:
-            logging.error(err)
+    if nerrors:
+        logging.error("{} error{} occured during backup".format(nerrors,
+                      's' if nerrors > 1 else ''))
         sys.exit(1)
 
     logging.info("Backup successful")
