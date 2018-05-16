@@ -208,7 +208,7 @@ def main():
         logging.info("Backup successful")
 
     # Send report via email.
-    success = send_report_email('benoist.laurent@gmail.com', logfile)
+    success = send_report_email('benoist@ibpc.fr', logfile)
     nerrors += success
 
     if nerrors:
