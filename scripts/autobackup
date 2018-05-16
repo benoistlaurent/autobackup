@@ -6,6 +6,7 @@ import subprocess
 import logging
 import os
 import smtplib
+import socket
 import sys
 
 from email.mime.text import MIMEText
@@ -152,6 +153,35 @@ def send_email(exp, to, content, subject='', server='localhost'):
     s.quit()
 
 
+def send_report_email(to, logfile):
+    """Send the content of `logfile` to recipient.
+
+    Returns:
+        bool: success status
+    """
+    try:
+        with open(logfile, 'rt') as f:
+            content = f.read()
+
+        has_errors = 'ERROR' in content
+
+        hostname = socket.gethostname()
+        subject = '[backup@{}]: {}'.format(hostname, 'ended with errors' if has_errors else 'success')
+
+        to = 'benoist.laurent@gmail.com'
+        send_email(os.getlogin(),
+                   to=to,
+                   subject=subject,
+                   server='localhost',
+                   content=content)
+    except Exception as e:
+        logging.error("Report e-mail not sent: {}".format(e))
+        return False
+
+    logging.error("Report e-mail has been sent to: {}".format(to))
+    return True
+
+
 def main():
     logfile = init_logging()
     logging.info("Start time: {}".format(now("%H:%M:%S")))
@@ -177,26 +207,13 @@ def main():
     else:
         logging.info("Backup successful")
 
-    # Send email.
-    try:
-        with open(logfile, 'rt') as f:
-            content = f.read()
-
-        to = 'benoist.laurent@gmail.com'
-        send_email(os.getlogin(),
-                   to=to,
-                   subject='backup report',
-                   content=content)
-    except Exception as e:
-        logging.error("Report e-mail not sent: {}".format(e))
-        nerrors += 1
-    else:
-        logging.error("Report e-mail has been sent to: {}".format(to))
-
-    logging.info("End time: {}".format(now("%H:%M:%S")))
+    # Send report via email.
+    success = send_report_email('benoist.laurent@gmail.com', logfile)
+    nerrors += success
 
     if nerrors:
         sys.exit(1)
+    logging.info("End time: {}".format(now("%H:%M:%S")))
 
 
 
