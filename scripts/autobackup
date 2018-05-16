@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
+import configparser
 import datetime
 import subprocess
 import logging
 import os
+import sys
 
 
 RSYNC_DEFAULT_FLAGS = ['-a', '-v', '--delete']
@@ -47,11 +49,10 @@ def rsync(source, dest, exe='rsync', flags=RSYNC_DEFAULT_FLAGS):
     Returns:
         RsyncCompletedProcess: rsync output data.
     """
-    logging.info("rsync: starting copy")
     cmd = [exe] + flags + [source] + [dest]
     logging.debug("rsync command: {}".format(' '.join(cmd)))
     p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    logging.info("rsync: done")
+    logging.debug("rsync process complete")
     return RsyncCompletedProcess.from_parent(p)
 
 
@@ -81,23 +82,51 @@ def now(fmt='%Y%m%d-%H%M%S'):
     return datetime.datetime.today().strftime(fmt)
 
 
-def main():
-    source = 'tmp/source'
-    dest = 'tmp/dest'
+def read_config_file(path):
+    config = configparser.ConfigParser()
+    config.read(path)
+    return config
 
-    # # Directory where log file will be written.
+
+def main():
+    # Directory where log file will be written.
     # logfiledir = dest
 
     # # Create a log file.
     # logfile = os.path.join(logfiledir, now() + '_backup.log')
     # logging.info("logging to: {}".format(logfile))
-    # logging.basicConfig(level=logging.DEBUG,
-    #                     format='%(asctime)s - %(levelname)-8s %(message)s',
+    logging.basicConfig(level=logging.DEBUG,
+                        format='%(asctime)s - %(levelname)-8s %(message)s',
     #                     filename=logfile,
-    #                     filemode='w')
+                        # filemode='w'
+    )
 
-    
+    errors = []
 
+    config = read_config_file('config/example.cfg')
+    for name in config.sections():
+        section = config[name]
+        source = section['source']
+        dest = section['dest']
+        logging.info("backing up {} to {}".format(source, dest))
+        result = rsync(source, dest)
+        if result.has_errors():
+            print("process standard output:\n{}".format(result.stdout.decode('utf-8')), file=sys.stderr)
+            print("process error output:\n{}".format(result.stderr.decode('utf-8')), file=sys.stderr)
+            message = "error backing up {} to {}".format(source, dest)
+            logging.error(message)
+            errors.append(message)
+        else:
+            logging.info("done, no error detected".format(source, dest))
+
+    if errors:
+        logging.error("{} error{} occured during backup:".format(len(errors),
+                      's' if len(errors) > 1 else ''))
+        for err in errors:
+            logging.error(err)
+        sys.exit(1)
+
+    logging.info("Backup successful")
 
 
 
