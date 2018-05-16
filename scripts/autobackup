@@ -150,9 +150,11 @@ def main():
     nerrors = 0
     for i, name in enumerate(config.sections()):
         logging.info("----------------------------")
+
         success = backup_from_config(config[name])
         if not success:
             nerrors += 1
+
         if i == len(config.sections()) - 1:
             logging.info("----------------------------")
 
