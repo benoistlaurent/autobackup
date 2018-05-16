@@ -5,7 +5,14 @@ import datetime
 import subprocess
 import logging
 import os
+import smtplib
 import sys
+
+from email.mime.text import MIMEText
+
+
+DEFAULT_CONFIG_FILE = '/var/etc/autobackup.cfg'
+DEFAULT_LOG_DIR = '/var/log/autobackup'
 
 
 RSYNC_DEFAULT_FLAGS = ['-a', '-v', '--delete']
@@ -68,22 +75,6 @@ def rsync(source, dest, exe='rsync', flags=RSYNC_DEFAULT_FLAGS):
     return RsyncCompletedProcess.from_parent(p)
 
 
-def send_email(exp, to, content, subject='', server='localhost'):
-    raise RuntimeError("send_email: Not working yet")
-
-    from email.mime.text import MIMEText
-    import smtplib
-
-    msg = MIMEText(content)
-    msg['Subject'] = subject
-    msg['From'] = exp
-    msg['To'] = to
-
-    s = smtplib.SMTP(server)
-    s.send_message(msg)
-    s.quit()
-
-
 def now(fmt='%y%m%d-%H%M%S'):
     """Return the date as a string in the format `fmt`.
     Args:
@@ -96,6 +87,10 @@ def now(fmt='%y%m%d-%H%M%S'):
 
 def read_config_file(path):
     logging.info("Read configuration file {}".format(path))
+
+    if not os.path.isfile(path):
+        raise FileNotFoundError("No such file or directory: {}".format(path))
+
     config = configparser.ConfigParser()
     config.read(path)
     return config
@@ -104,18 +99,23 @@ def read_config_file(path):
 def init_logging():
     """Initialize logging parameters."""
     # Directory where log file will be written.
-    logfiledir = '/var/log/autobackup'
+    logfiledir = DEFAULT_LOG_DIR
+
+    # Create directory if necessary.
+    if not os.path.isdir(logfiledir):
+        os.mkdir(logfiledir)
 
     # Log file name is based on current date and time.
     prog = os.path.basename(sys.argv[0])  # program name
     logfile = os.path.join(logfiledir, now() + '_backup.log')
-    print("{}: logging to: {}".format(prog, logfile), file=sys.stderr)
+    print("{}: logging to {}".format(prog, logfile), file=sys.stderr)
 
     # Initialization itself.
     logging.basicConfig(level=logging.DEBUG,
                         format='%(asctime)s - %(levelname)-8s %(message)s',
-                        # filename=logfile,
+                        filename=logfile,
                         filemode='w')
+    return logfile
 
 
 def backup_from_config(section):
@@ -134,17 +134,30 @@ def backup_from_config(section):
         message = "error backing up {} to {}:\n{}".format(source, dest, result.stderr_str)
         logging.error(message)
         return False
-    
+
     logging.info("done, no error detected".format(source, dest))
     return True
 
 
+def send_email(exp, to, content, subject='', server='localhost'):
+    exp = '{}@{}'.format(exp, server)
+
+    msg = MIMEText(content)
+    msg['Subject'] = subject
+    msg['From'] = exp
+    msg['To'] = to
+
+    s = smtplib.SMTP(server)
+    s.send_message(msg)
+    s.quit()
+
+
 def main():
-    init_logging()
+    # logfile = init_logging()
     logging.info("Start time: {}".format(now("%H:%M:%S")))
 
     # Read configuration file.
-    config = read_config_file('config/example.cfg')
+    config = read_config_file(DEFAULT_CONFIG_FILE)
 
     # Actual backup procedure.
     nerrors = 0
@@ -165,6 +178,20 @@ def main():
 
     logging.info("Backup successful")
     logging.info("End time: {}".format(now("%H:%M:%S")))
+
+    # Send email.
+    try:
+        with open(logfile, 'rt') as f:
+            content = f.read()
+
+        send_email(os.getlogin(),
+                   to='benoist.laurent@gmail.com',
+                   subject='backup report',
+                   content=content)
+    except Exception as e:
+        logging.error("Report e-mail not sent: {}".format(e))
+
+
 
 
 if __name__ == '__main__':
