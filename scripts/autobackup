@@ -11,7 +11,7 @@ import sys
 from email.mime.text import MIMEText
 
 
-DEFAULT_CONFIG_FILE = '/var/etc/autobackup.cfg'
+DEFAULT_CONFIG_FILE = '/usr/local/etc/autobackup.cfg'
 DEFAULT_LOG_DIR = '/var/log/autobackup'
 
 
@@ -153,7 +153,7 @@ def send_email(exp, to, content, subject='', server='localhost'):
 
 
 def main():
-    # logfile = init_logging()
+    logfile = init_logging()
     logging.info("Start time: {}".format(now("%H:%M:%S")))
 
     # Read configuration file.
@@ -174,23 +174,29 @@ def main():
     if nerrors:
         logging.error("{} error{} occured during backup".format(nerrors,
                       's' if nerrors > 1 else ''))
-        sys.exit(1)
-
-    logging.info("Backup successful")
-    logging.info("End time: {}".format(now("%H:%M:%S")))
+    else:
+        logging.info("Backup successful")
 
     # Send email.
     try:
         with open(logfile, 'rt') as f:
             content = f.read()
 
+        to = 'benoist.laurent@gmail.com'
         send_email(os.getlogin(),
-                   to='benoist.laurent@gmail.com',
+                   to=to,
                    subject='backup report',
                    content=content)
     except Exception as e:
         logging.error("Report e-mail not sent: {}".format(e))
+        nerrors += 1
+    else:
+        logging.error("Report e-mail has been sent to: {}".format(to))
 
+    logging.info("End time: {}".format(now("%H:%M:%S")))
+
+    if nerrors:
+        sys.exit(1)
 
 
 
