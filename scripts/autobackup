@@ -136,6 +136,7 @@ def backup_from_config(section):
         logging.error(message)
         return False
 
+    logging.debug(result.stdout_str)
     logging.info("done, no error detected".format(source, dest))
     return True
 
