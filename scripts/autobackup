@@ -12,6 +12,10 @@ import sys
 from email.mime.text import MIMEText
 
 
+__version__ = '1.0.0a'
+__executable__ = os.path.basename(sys.argv[0])
+
+
 DEFAULT_CONFIG_FILE = os.path.join(sys.prefix, 'etc', 'autobackup.cfg')
 DEFAULT_LOG_DIR = '/var/log/autobackup'
 
@@ -185,6 +189,7 @@ def send_report_email(to, logfile):
 
 def main():
     logfile = init_logging()
+    logging.info("This is {} version {}".format(__executable__, __version__))
     logging.info("Start time: {}".format(now("%H:%M:%S")))
 
     # Read configuration file.
