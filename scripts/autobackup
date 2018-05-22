@@ -51,8 +51,10 @@ class RsyncCompletedProcess(subprocess.CompletedProcess):
                 b'Result too large (34)' in self.stderr)
 
     def print_errors(self):
-        print("process standard output:\n{}".format(self.stdout_str), file=sys.stderr)
-        print("process error output:\n{}".format(self.stderr_str), file=sys.stderr)
+        out = "process standard output:\n{}".format(self.stdout_str)
+        err = "process error output:\n{}".format(self.stderr_str)
+        print(out, file=sys.stderr)
+        print(err, file=sys.stderr)
 
     def assert_has_no_errors(self):
         """Raise an AssertionError return code is not 0."""
@@ -136,7 +138,8 @@ def backup_from_config(section):
     result = rsync(source, dest)
 
     if result.has_errors():
-        message = "error backing up {} to {}:\n{}".format(source, dest, result.stderr_str)
+        message = "error backing up {} to {}:\n{}".format(source, dest,
+                                                          result.stderr_str)
         logging.error(message)
         return False
 
@@ -171,7 +174,11 @@ def send_report_email(to, logfile):
         has_errors = 'ERROR' in content
 
         hostname = socket.gethostname()
-        subject = '[backup@{}]: {}'.format(hostname, 'ended with errors' if has_errors else 'success')
+        subject = '[backup@{}]: '.format(hostname)
+        if has_errors:
+            subject += 'ended with errors'
+        else:
+            subject += 'success'
 
         to = 'benoist.laurent@gmail.com'
         send_email(os.getlogin(),
@@ -221,7 +228,6 @@ def main():
     if nerrors:
         sys.exit(1)
     logging.info("End time: {}".format(now("%H:%M:%S")))
-
 
 
 if __name__ == '__main__':

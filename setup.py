@@ -10,6 +10,7 @@ from setuptools.command.install import install
 SRC_CONFIG_FILE = 'config/workstations.cfg'
 DEST_CONFIG_FILE = os.path.join(sys.prefix, 'etc', 'autobackup.cfg')
 
+
 class PostInstallCommand(install):
     """Post-installation for installation mode."""
     def run(self):
