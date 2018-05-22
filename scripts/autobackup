@@ -12,7 +12,7 @@ import sys
 from email.mime.text import MIMEText
 
 
-DEFAULT_CONFIG_FILE = '/usr/local/etc/autobackup.cfg'
+DEFAULT_CONFIG_FILE = os.path.join(sys.prefix, 'etc', 'autobackup.cfg')
 DEFAULT_LOG_DIR = '/var/log/autobackup'
 
 
@@ -210,7 +210,8 @@ def main():
 
     # Send report via email.
     success = send_report_email('benoist@ibpc.fr', logfile)
-    nerrors += success
+    if not success:
+        nerrors += 1
 
     if nerrors:
         sys.exit(1)
