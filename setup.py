@@ -7,6 +7,10 @@ from setuptools import setup
 from setuptools.command.install import install
 
 
+if sys.version_info < (3,):
+    sys.exit("Sorry, Python < 3.x is not supported")
+
+
 SRC_CONFIG_FILE = 'config/workstations.cfg'
 DEST_CONFIG_FILE = os.path.join(sys.prefix, 'etc', 'autobackup.cfg')
 
