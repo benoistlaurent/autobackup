@@ -93,7 +93,7 @@ def now(fmt='%y%m%d-%H%M%S'):
 
 
 def read_config_file(path):
-    logging.info("Read configuration file {}".format(path))
+    logging.info("Reading configuration file {}".format(path))
 
     if not os.path.isfile(path):
         raise FileNotFoundError("No such file or directory: {}".format(path))
@@ -110,6 +110,7 @@ def init_logging():
 
     # Create directory if necessary.
     if not os.path.isdir(logfiledir):
+        logging.debug("Logging directory not found, creating {}".format(logfiledir))
         os.mkdir(logfiledir)
 
     # Log file name is based on current date and time.
@@ -180,7 +181,6 @@ def send_report_email(to, logfile):
         else:
             subject += 'success'
 
-        to = 'benoist.laurent@gmail.com'
         send_email(os.getlogin(),
                    to=to,
                    subject=subject,
@@ -190,7 +190,7 @@ def send_report_email(to, logfile):
         logging.error("Report e-mail not sent: {}".format(e))
         return False
 
-    logging.error("Report e-mail has been sent to: {}".format(to))
+    logging.info("Report e-mail successfully sent to: {}".format(to))
     return True
 
 
@@ -221,7 +221,7 @@ def main():
         logging.info("Backup successful")
 
     # Send report via email.
-    success = send_report_email('benoist@ibpc.fr', logfile)
+    success = send_report_email('benoist.laurent@gmail.com', logfile)
     if not success:
         nerrors += 1
 
