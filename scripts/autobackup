@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+"""Backup file and directories."""
+
+import argparse
 import configparser
 import datetime
 import subprocess
@@ -224,13 +227,24 @@ def send_report_email(to, logfile):
     return True
 
 
+def parse_command_line():    
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--version', action='version',
+                        version='%(prog)s ' + __version__)
+    parser.add_argument('-c', '--config', default=DEFAULT_CONFIG_FILE,
+                        help='configuration file')
+    return parser.parse_args()
+
+
 def main():
+    args = parse_command_line()
+
     logfile = init_logging()
     logging.info("This is {} version {}".format(__executable__, __version__))
     logging.info("Start time: {}".format(now("%H:%M:%S")))
 
     # Read configuration file.
-    config = read_config_file(DEFAULT_CONFIG_FILE)
+    config = read_config_file(args.config)
 
     # Actual backup procedure.
     nerrors = 0
