@@ -20,6 +20,7 @@ class PostInstallCommand(install):
     def run(self):
         install.run(self)
         self._install_config_file()
+        self._print_cron_update_cmd()
 
     def _install_config_file(self):
         src_config = SRC_CONFIG_FILE
@@ -32,6 +33,10 @@ class PostInstallCommand(install):
         dirname = os.path.dirname(dest_config)
         if not os.path.exists(dirname):
             os.mkdir(dirname)
+
+    def _print_cron_update_cmd(self):
+        print("To run autobackup every day at 2:00 am, update the crontab:")
+        print("0  2    * * *   root    /usr/local/bin/autobackup")
 
 
 requirements = []
