@@ -103,27 +103,53 @@ def read_config_file(path):
     return config
 
 
+def program_name():
+    """Return the program name."""
+    return os.path.basename(sys.argv[0])
+
+
+def custom_logging(message):
+    """Print a logging message on sys.stderr.
+
+    This function is supposed to be used when logging has not been initialized.
+    """
+    message = '{}: {}'.format(program_name(), message)
+    print(message, file=sys.stderr)
+
+
 def init_logging():
     """Initialize logging parameters."""
+    fmt = '%(asctime)s - %(levelname)-8s %(message)s'
+
     # Directory where log file will be written.
     logfiledir = DEFAULT_LOG_DIR
 
     # Create directory if necessary.
     if not os.path.isdir(logfiledir):
-        logging.debug("Logging directory not found, creating {}".format(logfiledir))
+        msg = "Logging directory not found, creating {}".format(logfiledir)
+        custom_logging(msg)
         os.mkdir(logfiledir)
 
-    # Log file name is based on current date and time.
-    prog = os.path.basename(sys.argv[0])  # program name
-    logfile = os.path.join(logfiledir, now() + '_backup.log')
-    print("{}: logging to {}".format(prog, logfile), file=sys.stderr)
+    # Log files names are based on current date and time.
+    logfile_debug = os.path.join(logfiledir, now() + '_backup-full.log')
+    logfile_info = os.path.join(logfiledir, now() + '_backup.log')
+    custom_logging("full log file to {}".format(logfile_debug))
+    custom_logging("info log file to {}".format(logfile_info))
 
-    # Initialization itself.
+    # This logger will log at DEBUG level.
     logging.basicConfig(level=logging.DEBUG,
-                        format='%(asctime)s - %(levelname)-8s %(message)s',
-                        filename=logfile,
+                        format=fmt,
+                        filename=logfile_debug,
                         filemode='w')
-    return logfile
+
+    # This logger will log at INFO level.
+    info_handler = logging.FileHandler(logfile_info)
+    info_handler.setLevel(logging.INFO)
+    formatter = logging.Formatter(fmt)
+    info_handler.setFormatter(formatter)
+    logging.getLogger('').addHandler(info_handler)
+
+    return logfile_info, logfile_debug
 
 
 def backup_from_config(section):
