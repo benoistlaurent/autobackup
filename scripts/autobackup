@@ -150,6 +150,7 @@ def backup_from_config(section):
 
 
 def send_email(exp, to, content, subject='', server='localhost'):
+    logging.debug("Sending an email from {}@{} to {}".format(exp, server, to))
     exp = '{}@{}'.format(exp, server)
 
     msg = MIMEText(content)
@@ -168,19 +169,22 @@ def send_report_email(to, logfile):
     Returns:
         bool: success status
     """
+    if not os.path.exists(logfile):
+        raise FileNotFoundError("Log file not found: {}".format(logfile))
+    
+    with open(logfile, 'rt') as f:
+        content = f.read()
+
+    has_errors = 'ERROR' in content
+
+    hostname = socket.gethostname()
+    subject = '[backup@{}]: '.format(hostname)
+    if has_errors:
+        subject += 'ended with errors'
+    else:
+        subject += 'success'
+
     try:
-        with open(logfile, 'rt') as f:
-            content = f.read()
-
-        has_errors = 'ERROR' in content
-
-        hostname = socket.gethostname()
-        subject = '[backup@{}]: '.format(hostname)
-        if has_errors:
-            subject += 'ended with errors'
-        else:
-            subject += 'success'
-
         send_email(os.getlogin(),
                    to=to,
                    subject=subject,
