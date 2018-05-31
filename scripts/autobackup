@@ -266,12 +266,9 @@ def main():
     else:
         logging.info("Backup successful")
 
-    # Send report via email.
-    success = send_report_email('benoist.laurent@gmail.com', logfile_info, logfile_debug)
-    if not success:
-        nerrors += 1
-
+    # Send report via email (on failure only).
     if nerrors:
+        send_report_email('benoist.laurent@gmail.com', logfile_info, logfile_debug)
         sys.exit(1)
 
     logging.info("End time: {}".format(now("%H:%M:%S")))
