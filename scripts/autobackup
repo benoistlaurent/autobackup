@@ -15,7 +15,7 @@ import sys
 from email.mime.text import MIMEText
 
 
-__version__ = '1.0.0'
+__version__ = '1.0.1'
 __executable__ = os.path.basename(sys.argv[0])
 
 

@@ -45,7 +45,7 @@ test_requirements = []
 
 setup(
     name='autobackup',
-    version='1.0.0',
+    1.0.1,
     description='A simple backup utility',
     author='Benoist LAURENT',
     author_email='benoist.laurent@ibpc.fr',
