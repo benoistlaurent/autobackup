@@ -4,6 +4,7 @@ env/
 
 # Misc
 tmp/
+.vscode
 
 # Distribution / packaging
 .Python
