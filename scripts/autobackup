@@ -27,26 +27,30 @@ RSYNC_DEFAULT_FLAGS = ["-a", "-v", "--delete"]
 
 
 class RsyncCompletedProcess(subprocess.CompletedProcess):
+    """Helps parsing rsync output to detect errors."""
 
     @property
     def stdout_str(self):
+        """Returns stdout decoded using utf-8."""
         return self.stdout.decode("utf-8")
 
     @property
     def stderr_str(self):
+        """Returns stderr decoded using utf-8."""
         return self.stderr.decode("utf-8")
 
     @classmethod
     def from_parent(cls, parent):
+        """Initialization from another instance."""
         return cls(parent.args, parent.returncode,
                    parent.stdout, parent.stderr)
 
     def has_errors(self):
-        """Return True if rsync exited with errors (return status is not 0)."""
+        """Returns True if rsync exited with errors (return status is not 0)."""
         return self.returncode != 0
 
     def has_no_space_left_error(self):
-        """Return True if a no space left error was detected.
+        """Returns True if a no space left error was detected.
         Check if stderr contains 'No space left on device (28)' or
         'Result too large (34)'.
         """
@@ -54,20 +58,21 @@ class RsyncCompletedProcess(subprocess.CompletedProcess):
                 b"Result too large (34)" in self.stderr)
 
     def print_errors(self):
+        """Prints process standard output and error to stderr."""
         out = f"process standard output:\n{self.stdout_str}"
         err = f"process error output:\n{self.stderr_str}"
         print(out, file=sys.stderr)
         print(err, file=sys.stderr)
 
     def assert_has_no_errors(self):
-        """Raise an AssertionError return code is not 0."""
+        """Raises an AssertionError return code is not 0."""
         if self.has_errors():
             err = "rsync process had errors:\n" + self.stderr.decode("utf-8")
             raise AssertionError(err)
 
 
-def rsync(source, dest, exe="rsync", flags=RSYNC_DEFAULT_FLAGS):
-    """Run rsync.
+def rsync(source, dest, exe="rsync", flags=None):
+    """Runs rsync.
 
     Args:
         source (str): path to source
@@ -78,17 +83,20 @@ def rsync(source, dest, exe="rsync", flags=RSYNC_DEFAULT_FLAGS):
     Returns:
         RsyncCompletedProcess: rsync output data.
     """
+    if flags is None:
+        flags = RSYNC_DEFAULT_FLAGS
     cmd = [exe] + flags + [source] + [dest]
-    logging.debug(f"rsync command: {" ".join(cmd)}")
-    p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    logging.debug("rsync command: %s", ' '.join(cmd))
+    process = subprocess.run(cmd, check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     logging.debug("rsync process complete")
-    return RsyncCompletedProcess.from_parent(p)
+    return RsyncCompletedProcess.from_parent(process)
 
 
 def now(fmt="%y%m%d-%H%M%S"):
-    """Return the date as a string in the format `fmt`.
+    """Returns the date as a string in the format `fmt`.
     Args:
         fmt (str): date string format compatible with `datetime.strftime`.
+
     Returns:
         str: date as a string.
     """
@@ -96,7 +104,8 @@ def now(fmt="%y%m%d-%H%M%S"):
 
 
 def read_config_file(path):
-    logging.info(f"Reading configuration file {path}")
+    """Reads the configuration file."""
+    logging.info("Reading configuration file %s", path)
 
     if not os.path.isfile(path):
         raise FileNotFoundError(f"No such file or directory: {path}")
@@ -107,12 +116,12 @@ def read_config_file(path):
 
 
 def program_name():
-    """Return the program name."""
+    """Returns the program name."""
     return os.path.basename(sys.argv[0])
 
 
 def custom_logging(message):
-    """Print a logging message on sys.stderr.
+    """Prints a logging message on sys.stderr.
 
     This function is supposed to be used when logging has not been initialized.
     """
@@ -121,7 +130,7 @@ def custom_logging(message):
 
 
 def init_logging():
-    """Initialize logging parameters."""
+    """Initializes logging parameters."""
     fmt = "%(asctime)s - %(levelname)-8s %(message)s"
 
     # Directory where log file will be written.
@@ -156,14 +165,14 @@ def init_logging():
 
 
 def backup_from_config(section):
-    """Backup from info stored in configuration file section.
+    """Backups from info stored in configuration file section.
 
     Returns:
         bool: success status
     """
     source = section["source"]
     dest = section["dest"]
-    logging.info(f"backing up {source} to {dest}")
+    logging.info("backing up %s to %s", source, dest)
 
     result = rsync(source, dest)
 
@@ -178,7 +187,8 @@ def backup_from_config(section):
 
 
 def send_email(exp, to, content, subject="", server="localhost"):
-    logging.debug(f"Sending an email from {exp}@{server} to {to}")
+    """Sends a generic email."""
+    logging.debug("Sending an email from %s@%s to %s", exp, server, to)
     exp = f"{exp}@{server}"
 
     msg = MIMEText(content)
@@ -186,22 +196,22 @@ def send_email(exp, to, content, subject="", server="localhost"):
     msg["From"] = exp
     msg["To"] = to
 
-    s = smtplib.SMTP(server)
-    s.send_message(msg)
-    s.quit()
+    smtp = smtplib.SMTP(server)
+    smtp.send_message(msg)
+    smtp.quit()
 
 
-def send_report_email(to, logfile_info, logfile_debug):
-    """Send the content of `logfile_info` to recipient.
+def send_report_email(to, logfile_info):
+    """Sends the content of `logfile_info` to recipient.
 
     Returns:
         bool: success status
     """
     if not os.path.exists(logfile_info):
         raise FileNotFoundError(f"Log file not found: {logfile_info}")
-    
-    with open(logfile_info, "rt") as f:
-        content = f.read()
+
+    with open(logfile_info, "rt") as fileobj:
+        content = fileobj.read()
 
     has_errors = "ERROR" in content
 
@@ -218,15 +228,16 @@ def send_report_email(to, logfile_info, logfile_debug):
                    subject=subject,
                    server="localhost",
                    content=content)
-    except Exception as e:
-        logging.error(f"Report e-mail not sent: {e}")
+    except Exception as expt:
+        logging.error("Report e-mail not sent: %s", str(expt))
         return False
 
-    logging.info(f"Report e-mail successfully sent to: {to}")
+    logging.info("Report e-mail successfully sent to: %s", to)
     return True
 
 
-def parse_command_line():    
+def parse_command_line():
+    """Parses the command line."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--version", action="version",
                         version="%(prog)s " + __version__)
@@ -236,13 +247,14 @@ def parse_command_line():
 
 
 def main():
+    """Main process."""
     args = parse_command_line()
 
     logfile_info, logfile_debug = init_logging()
-    logging.info(f"This is {__executable__} version {__version__}")
-    logging.info(f"Start time: {now('%H:%M:%S')}")
-    logging.info(f"Log file: {logfile_info}")
-    logging.info(f"Full log file: {logfile_debug}")
+    logging.info("This is %s version %s", __executable__, __version__)
+    logging.info("Start time: %s", now("%H:%M:%S"))
+    logging.info("Log file: %s", logfile_info)
+    logging.info("Full log file: %s", logfile_debug)
 
     # Read configuration file.
     config = read_config_file(args.config)
@@ -268,17 +280,17 @@ def main():
             logging.info("----------------------------")
 
     if nerrors:
-        logging.error("{} error{} occured during backup".format(nerrors,
-                      "s" if nerrors > 1 else ""))
+        logging.error("%d error %s occured during backup", nerrors,
+                      "s" if nerrors > 1 else "")
     else:
         logging.info("Backup successful")
 
     # Send report via email (on failure only).
     if nerrors:
-        send_report_email("benoist.laurent@gmail.com", logfile_info, logfile_debug)
+        send_report_email("benoist.laurent@gmail.com", logfile_info)
         sys.exit(1)
 
-    logging.info(f"End time: {now('%H:%M:%S')}")
+    logging.info("End time: %s", now("%H:%M:%S"))
 
 
 if __name__ == "__main__":
