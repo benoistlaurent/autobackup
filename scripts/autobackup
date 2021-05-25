@@ -54,8 +54,8 @@ class RsyncCompletedProcess(subprocess.CompletedProcess):
                 b'Result too large (34)' in self.stderr)
 
     def print_errors(self):
-        out = "process standard output:\n{}".format(self.stdout_str)
-        err = "process error output:\n{}".format(self.stderr_str)
+        out = f"process standard output:\n{self.stdout_str}"
+        err = f"process error output:\n{self.stderr_str}"
         print(out, file=sys.stderr)
         print(err, file=sys.stderr)
 
@@ -79,7 +79,7 @@ def rsync(source, dest, exe='rsync', flags=RSYNC_DEFAULT_FLAGS):
         RsyncCompletedProcess: rsync output data.
     """
     cmd = [exe] + flags + [source] + [dest]
-    logging.debug("rsync command: {}".format(' '.join(cmd)))
+    logging.debug(f"rsync command: {' '.join(cmd)}")
     p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     logging.debug("rsync process complete")
     return RsyncCompletedProcess.from_parent(p)
@@ -96,10 +96,10 @@ def now(fmt='%y%m%d-%H%M%S'):
 
 
 def read_config_file(path):
-    logging.info("Reading configuration file {}".format(path))
+    logging.info(f"Reading configuration file {path}")
 
     if not os.path.isfile(path):
-        raise FileNotFoundError("No such file or directory: {}".format(path))
+        raise FileNotFoundError(f"No such file or directory: {path}")
 
     config = configparser.ConfigParser()
     config.read(path)
@@ -116,7 +116,7 @@ def custom_logging(message):
 
     This function is supposed to be used when logging has not been initialized.
     """
-    message = '{}: {}'.format(program_name(), message)
+    message = f"{program_name()}: {message}"
     print(message, file=sys.stderr)
 
 
@@ -129,15 +129,15 @@ def init_logging():
 
     # Create directory if necessary.
     if not os.path.isdir(logfiledir):
-        msg = "Logging directory not found, creating {}".format(logfiledir)
+        msg = f"Logging directory not found, creating {logfiledir}"
         custom_logging(msg)
         os.mkdir(logfiledir)
 
     # Log files names are based on current date and time.
     logfile_debug = os.path.join(logfiledir, now() + '_backup-full.log')
     logfile_info = os.path.join(logfiledir, now() + '_backup.log')
-    custom_logging("full log file to {}".format(logfile_debug))
-    custom_logging("info log file to {}".format(logfile_info))
+    custom_logging(f"full log file to {logfile_debug}")
+    custom_logging(f"info log file to {logfile_info}")
 
     # This logger will log at DEBUG level.
     logging.basicConfig(level=logging.DEBUG,
@@ -163,24 +163,23 @@ def backup_from_config(section):
     """
     source = section['source']
     dest = section['dest']
-    logging.info("backing up {} to {}".format(source, dest))
+    logging.info(f"backing up {source} to {dest}")
 
     result = rsync(source, dest)
 
     if result.has_errors():
-        message = "error backing up {} to {}:\n{}".format(source, dest,
-                                                          result.stderr_str)
+        message = f"error backing up {source} to {dest}:\n{result.stderr_str}"
         logging.error(message)
         return False
 
     logging.debug(result.stdout_str)
-    logging.info("done, no error detected".format(source, dest))
+    logging.info("done, no error detected")
     return True
 
 
 def send_email(exp, to, content, subject='', server='localhost'):
-    logging.debug("Sending an email from {}@{} to {}".format(exp, server, to))
-    exp = '{}@{}'.format(exp, server)
+    logging.debug(f"Sending an email from {exp}@{server} to {to}")
+    exp = '{exp}@{server}'
 
     msg = MIMEText(content)
     msg['Subject'] = subject
@@ -199,7 +198,7 @@ def send_report_email(to, logfile_info, logfile_debug):
         bool: success status
     """
     if not os.path.exists(logfile_info):
-        raise FileNotFoundError("Log file not found: {}".format(logfile_info))
+        raise FileNotFoundError(f"Log file not found: {logfile_info}")
     
     with open(logfile_info, 'rt') as f:
         content = f.read()
@@ -207,7 +206,7 @@ def send_report_email(to, logfile_info, logfile_debug):
     has_errors = 'ERROR' in content
 
     hostname = socket.gethostname()
-    subject = '[backup@{}]: '.format(hostname)
+    subject = f'[backup@{hostname}]: '
     if has_errors:
         subject += 'ended with errors'
     else:
@@ -220,10 +219,10 @@ def send_report_email(to, logfile_info, logfile_debug):
                    server='localhost',
                    content=content)
     except Exception as e:
-        logging.error("Report e-mail not sent: {}".format(e))
+        logging.error(f"Report e-mail not sent: {e}")
         return False
 
-    logging.info("Report e-mail successfully sent to: {}".format(to))
+    logging.info(f"Report e-mail successfully sent to: {to}")
     return True
 
 
@@ -240,10 +239,10 @@ def main():
     args = parse_command_line()
 
     logfile_info, logfile_debug = init_logging()
-    logging.info("This is {} version {}".format(__executable__, __version__))
-    logging.info("Start time: {}".format(now("%H:%M:%S")))
-    logging.info("Log file: {}".format(logfile_info))
-    logging.info("Full log file: {}".format(logfile_debug))
+    logging.info(f"This is {__executable__} version {__version__}")
+    logging.info(f"Start time: {now('%H:%M:%S')}")
+    logging.info(f"Log file: {logfile_info}")
+    logging.info(f"Full log file: {logfile_debug}")
 
     # Read configuration file.
     config = read_config_file(args.config)
@@ -271,7 +270,7 @@ def main():
         send_report_email('benoist.laurent@gmail.com', logfile_info, logfile_debug)
         sys.exit(1)
 
-    logging.info("End time: {}".format(now("%H:%M:%S")))
+    logging.info(f"End time: {now('%H:%M:%S')}")
 
 
 if __name__ == '__main__':
