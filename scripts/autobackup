@@ -247,6 +247,14 @@ def main():
     # Read configuration file.
     config = read_config_file(args.config)
 
+    # Get the alert mail address.
+    if "alert_email" not in config:
+        raise KeyError("no alert_email section found in configuration file")
+    alert_email = config["alert_email"].get("address", fallback=None)
+    if alert_email is None:
+        raise KeyError("no address section found in alert_email section")
+    config.remove_section("alert_email")
+
     # Actual backup procedure.
     nerrors = 0
     for i, name in enumerate(config.sections()):
