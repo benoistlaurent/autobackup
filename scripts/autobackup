@@ -287,7 +287,7 @@ def main():
 
     # Send report via email (on failure only).
     if nerrors:
-        send_report_email("benoist.laurent@gmail.com", logfile_info)
+        send_report_email(alert_email, logfile_info)
         sys.exit(1)
 
     logging.info("End time: %s", now("%H:%M:%S"))
